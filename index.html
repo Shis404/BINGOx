@@ -1,0 +1,2253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BINGO 25 — Verbal Cut & Cross Game</title>
+
+  <!-- Tailwind CSS for responsive layout and utility styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tone.js for procedural game sound effects (no external audio URLs needed) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+  <!-- Google Fonts: Fredoka for playful game numbers/headers & Plus Jakarta Sans for clean UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    // Configure Tailwind theme extensions for fonts and custom animations
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Fredoka', 'sans-serif'],
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+          keyframes: {
+            popIn: {
+              '0%': { transform: 'scale(0.75)', opacity: '0' },
+              '70%': { transform: 'scale(1.08)' },
+              '100%': { transform: 'scale(1)', opacity: '1' },
+            },
+            letterBounce: {
+              '0%, 100%': { transform: 'translateY(0) scale(1)' },
+              '40%': { transform: 'translateY(-8px) scale(1.14) rotate(-3deg)' },
+              '70%': { transform: 'translateY(2px) scale(0.96) rotate(2deg)' },
+            },
+            pulseGlow: {
+              '0%, 100%': { boxShadow: '0 0 0 0 rgba(245, 158, 11, 0.45)' },
+              '50%': { boxShadow: '0 0 0 10px rgba(245, 158, 11, 0)' },
+            }
+          },
+          animation: {
+            'pop-in': 'popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+            'letter-bounce': 'letterBounce 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            'pulse-glow': 'pulseGlow 2s infinite',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Custom tactile game styling & SVG hand-drawn strike animations */
+    html, body {
+      overscroll-behavior-y: contain;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    button, input, label {
+      touch-action: manipulation;
+    }
+
+    .font-game {
+      font-family: 'Fredoka', sans-serif;
+    }
+
+    /* Subtle notebook grid pattern background for authentic pen-and-paper charm */
+    .bg-notebook {
+      background-color: #fdfbf7;
+      background-image:
+        linear-gradient(to right, rgba(99, 102, 241, 0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(99, 102, 241, 0.06) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .dark .bg-notebook {
+      background-color: #0f172a;
+      background-image:
+        linear-gradient(to right, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* Animated hand-drawn SVG cross stroke */
+    .cross-path-1 {
+      stroke-dasharray: 100;
+      stroke-dashoffset: 100;
+      animation: drawStroke 0.22s ease-out forwards;
+    }
+
+    .cross-path-2 {
+      stroke-dasharray: 100;
+      stroke-dashoffset: 100;
+      animation: drawStroke 0.22s ease-out 0.08s forwards;
+    }
+
+    @keyframes drawStroke {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+
+    /* Custom sleek scrollbar for the spoken number sequence strip */
+    .sequence-scroll::-webkit-scrollbar {
+      height: 5px;
+    }
+    .sequence-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .sequence-scroll::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 9999px;
+    }
+
+    /* Tactile 3D push button feel */
+    .btn-tactile {
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
+    }
+    .btn-tactile:active:not(:disabled) {
+      transform: translateY(3px);
+    }
+  </style>
+</head>
+
+<body class="bg-notebook text-slate-800 dark:text-slate-100 min-h-[100dvh] flex flex-col transition-colors duration-200 overflow-x-hidden">
+
+  <!-- Full-screen Confetti Canvas (hidden until BINGO win celebration) -->
+  <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+  <!-- Top Navigation & Utility Bar -->
+  <header class="w-full max-w-5xl mx-auto px-3 sm:px-4 pt-2.5 sm:pt-3 pb-1.5 sm:pb-2 flex items-center justify-between gap-1.5 sm:gap-2">
+    <!-- Brand Title -->
+    <div class="flex items-center gap-2 shrink-0">
+      <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-game font-bold text-base sm:text-xl shadow-md shadow-indigo-500/20">
+        25
+      </div>
+      <div class="hidden min-[400px]:block">
+        <h1 class="font-game font-bold text-base sm:text-2xl tracking-tight leading-none bg-gradient-to-r from-indigo-600 to-pink-600 dark:from-indigo-400 dark:to-pink-400 bg-clip-text text-transparent">
+          BINGO 25
+        </h1>
+        <p class="hidden sm:block text-xs text-slate-500 dark:text-slate-400 font-medium">
+          Digital Cut &amp; Cross Sheet
+        </p>
+      </div>
+    </div>
+
+    <!-- Mode Switcher & Quick Controls -->
+    <div class="flex items-center gap-1 sm:gap-2">
+      <!-- Game Mode Selector: Solo Sheet, Online Room Code, or 2-Player Local -->
+      <div class="bg-white/90 dark:bg-slate-800/90 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center text-[11px] sm:text-xs font-bold">
+        <button id="mode-solo-btn" onclick="switchGameMode('solo')"
+          class="px-2 sm:px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 bg-indigo-600 text-white shadow-sm min-h-[34px]">
+          <span>🗣️</span>
+          <span>Solo</span>
+        </button>
+        <button id="mode-online-btn" onclick="switchGameMode('online')"
+          class="px-2 sm:px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 min-h-[34px]">
+          <span>🌐</span>
+          <span>Online</span>
+        </button>
+        <button id="mode-duo-btn" onclick="switchGameMode('duo')"
+          class="px-2 sm:px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 min-h-[34px]">
+          <span>👥</span>
+          <span class="sm:hidden">2P</span>
+          <span class="hidden sm:inline">2-Player</span>
+        </button>
+      </div>
+
+      <!-- How to Play Help Button -->
+      <button onclick="openRulesModal()" title="How to Play"
+        class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm btn-tactile shrink-0"
+        aria-label="How to play">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+        </svg>
+      </button>
+
+      <!-- Sound Effects Toggle Button -->
+      <button id="sound-toggle-btn" onclick="toggleSound()" title="Toggle Sound Effects"
+        class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm btn-tactile shrink-0"
+        aria-label="Toggle Sound">
+        <span id="sound-icon" class="text-sm sm:text-base">🔊</span>
+      </button>
+
+      <!-- Dark / Light Theme Toggle Button -->
+      <button id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode"
+        class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm btn-tactile shrink-0"
+        aria-label="Toggle Theme">
+        <span id="theme-icon" class="text-sm sm:text-base">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Interactive Game Container -->
+  <main id="app-container" class="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] flex flex-col justify-center">
+    <!-- Dynamically rendered by JavaScript based on Solo (Verbal) or Duo (2-Player) mode -->
+  </main>
+
+  <!-- Toast Notification Pill (Replaces native alerts cleanly) -->
+  <div id="toast-container" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 w-full max-w-sm px-4"></div>
+
+  <!-- Custom Confirmation Modal (For resetting/starting a new board) -->
+  <div id="confirm-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 animate-pop-in text-center">
+      <div class="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-3 text-2xl">
+        🔄
+      </div>
+      <h3 id="confirm-title" class="font-game text-xl font-bold text-slate-800 dark:text-white mb-1.5">
+        Start a Fresh Board?
+      </h3>
+      <p id="confirm-message" class="text-sm text-slate-600 dark:text-slate-300 mb-5 leading-relaxed">
+        This will clear your current crossed numbers so you can arrange a new 1–25 grid.
+      </p>
+      <div class="flex gap-3">
+        <button onclick="closeConfirmModal()"
+          class="flex-1 py-3 px-4 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 btn-tactile">
+          Keep Playing
+        </button>
+        <button id="confirm-action-btn"
+          class="flex-1 py-3 px-4 rounded-2xl font-bold text-sm bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-500/25 btn-tactile">
+          New Board
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- How to Play Rules Modal -->
+  <div id="rules-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onclick="if(event.target===this) closeRulesModal()">
+    <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 animate-pop-in">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-game text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+          <span>🎲</span> How to Play BINGO 25
+        </h3>
+        <button onclick="closeRulesModal()" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-300 font-bold">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-sm text-slate-600 dark:text-slate-300">
+        <div class="flex gap-3 items-start bg-indigo-50/70 dark:bg-indigo-950/40 p-3 rounded-2xl">
+          <span class="w-7 h-7 rounded-xl bg-indigo-600 text-white font-game font-bold flex items-center justify-center shrink-0">1</span>
+          <div>
+            <p class="font-bold text-slate-800 dark:text-white">Arrange Numbers 1 to 25</p>
+            <p class="text-xs mt-0.5 leading-relaxed">Shuffle randomly, or clear the grid and tap boxes in order to place 1–25 anywhere you like. Tap any two numbers to swap them!</p>
+          </div>
+        </div>
+
+        <div class="flex gap-3 items-start bg-pink-50/70 dark:bg-pink-950/40 p-3 rounded-2xl">
+          <span class="w-7 h-7 rounded-xl bg-pink-600 text-white font-game font-bold flex items-center justify-center shrink-0">2</span>
+          <div>
+            <p class="font-bold text-slate-800 dark:text-white">Take Turns — 1 Cross Each</p>
+            <p class="text-xs mt-0.5 leading-relaxed">In <strong>Online</strong> or <strong>2-Player</strong> mode, players alternate crossing <strong>1 number per turn</strong>. Your grids stay hidden online, and every cut automatically syncs to both sheets!</p>
+          </div>
+        </div>
+
+        <div class="flex gap-3 items-start bg-amber-50/70 dark:bg-amber-950/40 p-3 rounded-2xl">
+          <span class="w-7 h-7 rounded-xl bg-amber-500 text-white font-game font-bold flex items-center justify-center shrink-0">3</span>
+          <div>
+            <p class="font-bold text-slate-800 dark:text-white">Complete 5 Lines to Spell B-I-N-G-O</p>
+            <p class="text-xs mt-0.5 leading-relaxed">Every completed horizontal row, vertical column, or diagonal unlocks the next letter: <strong>B → I → N → G → O</strong>. First to 5 lines wins!</p>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="closeRulesModal()"
+        class="mt-5 w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-game font-bold text-base shadow-md shadow-indigo-500/20 btn-tactile">
+        Got It, Let's Play!
+      </button>
+    </div>
+  </div>
+
+  <!-- BINGO Victory Celebration Modal -->
+  <div id="victory-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/65 backdrop-blur-sm p-4">
+    <div id="victory-card" class="bg-white dark:bg-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-amber-300/60 dark:border-amber-500/30 animate-pop-in text-center">
+      <div id="victory-icon-box" class="w-16 h-16 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center mx-auto mb-3 text-3xl shadow-lg shadow-amber-500/30">
+        🏆
+      </div>
+      <div id="victory-letters-row" class="flex justify-center gap-1.5 mb-2">
+        <span class="w-7 h-7 rounded-lg bg-rose-500 text-white font-game font-bold flex items-center justify-center text-sm">B</span>
+        <span class="w-7 h-7 rounded-lg bg-amber-500 text-white font-game font-bold flex items-center justify-center text-sm">I</span>
+        <span class="w-7 h-7 rounded-lg bg-emerald-500 text-white font-game font-bold flex items-center justify-center text-sm">N</span>
+        <span class="w-7 h-7 rounded-lg bg-sky-500 text-white font-game font-bold flex items-center justify-center text-sm">G</span>
+        <span class="w-7 h-7 rounded-lg bg-purple-500 text-white font-game font-bold flex items-center justify-center text-sm">O</span>
+      </div>
+      <h3 id="victory-headline" class="font-game text-2xl font-bold text-slate-800 dark:text-white mb-1">
+        BINGO! YOU WIN!
+      </h3>
+      <p id="victory-subtext" class="text-sm text-slate-600 dark:text-slate-300 mb-5 leading-relaxed">
+        Completed 5 lines!
+      </p>
+      <div class="flex flex-col sm:flex-row gap-2.5">
+        <button onclick="dismissVictoryModal()"
+          class="flex-1 py-3 px-4 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 btn-tactile">
+          View Board
+        </button>
+        <button onclick="startNewBoardFromWin()"
+          class="flex-1 py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-indigo-600 to-pink-600 text-white shadow-md shadow-indigo-500/25 hover:brightness-105 btn-tactile">
+          🔄 Play Again
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    /* ============================================================================
+       0. FIREBASE REALTIME ROOM ENGINE (Private Boards + Synced Cut Numbers)
+       ============================================================================ */
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+
+    let firebaseDb = null;
+    let firebaseAuth = null;
+
+    // Unique per-tab/per-device player identifier so Host & Guest never collide
+    const SESSION_PLAYER_ID = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `player-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const OnlineState = {
+      available: Boolean(firebaseConfig),
+      authReady: false,
+      user: null,
+      playerId: SESSION_PLAYER_ID,
+      roomCode: null,
+      role: null, // 'host' | 'guest'
+      unsubscribe: null,
+      roomData: null,
+      lastRoundId: 1,
+      hasNotifiedFriendConnected: false,
+      hasNotifiedFriendReady: false,
+      isConnecting: false,
+      joinInput: ''
+    };
+
+    // Initialize Firebase Auth before any Firestore operation (Rule 3)
+    async function initOnlineAuth() {
+      if (!firebaseConfig) return;
+      try {
+        const app = initializeApp(firebaseConfig);
+        firebaseDb = getFirestore(app);
+        firebaseAuth = getAuth(app);
+
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(firebaseAuth, __initial_auth_token);
+        } else {
+          await signInAnonymously(firebaseAuth);
+        }
+        OnlineState.user = firebaseAuth.currentUser;
+        OnlineState.authReady = true;
+        if (AppState.mode === 'online') renderApp();
+      } catch (err) {
+        console.error('Online auth error:', err);
+        OnlineState.available = false;
+        if (AppState.mode === 'online') renderApp();
+      }
+    }
+
+    // Strict path helper (Rule 1): /artifacts/{appId}/public/data/bingo_rooms/{roomCode}
+    function getRoomDocRef(code) {
+      return doc(firebaseDb, 'artifacts', appId, 'public', 'data', 'bingo_rooms', code);
+    }
+
+    // Generate a 5-digit easy-to-share room code
+    function generateRoomCode() {
+      return String(Math.floor(10000 + Math.random() * 90000));
+    }
+
+    // Helper to check whether the opponent has joined the active online room
+    function isFriendConnectedInRoom(data) {
+      if (!data || !OnlineState.role) return false;
+      return OnlineState.role === 'host'
+        ? Boolean(data.guestPlayerId || data.guestUid)
+        : Boolean(data.hostPlayerId || data.hostUid);
+    }
+
+    // Helper to check whether the opponent has locked their 1-25 grid
+    function isFriendReadyInRoom(data) {
+      if (!data || !OnlineState.role) return false;
+      return OnlineState.role === 'host' ? Boolean(data.guestReady) : Boolean(data.hostReady);
+    }
+
+    // Create a new private-grid online room and listen to shared called numbers
+    async function createOnlineRoom() {
+      if (!OnlineState.authReady || !OnlineState.user) {
+        showToast('Connecting to online service...');
+        return;
+      }
+      if (OnlineState.isConnecting) return;
+
+      OnlineState.isConnecting = true;
+      renderApp();
+
+      try {
+        let code = generateRoomCode();
+        let roomRef = getRoomDocRef(code);
+        let existing = await getDoc(roomRef);
+        while (existing.exists()) {
+          code = generateRoomCode();
+          roomRef = getRoomDocRef(code);
+          existing = await getDoc(roomRef);
+        }
+
+        const initialRoom = {
+          roomCode: code,
+          hostUid: OnlineState.user.uid,
+          hostPlayerId: OnlineState.playerId,
+          guestUid: null,
+          guestPlayerId: null,
+          hostReady: false,
+          guestReady: false,
+          hostLetters: 0,
+          guestLetters: 0,
+          startingTurn: 'host',
+          currentTurn: 'host',
+          calledNumbers: [],
+          lastActionBy: null,
+          lastActionType: null,
+          lastActionNum: null,
+          roundId: 1,
+          winner: null,
+          updatedAt: Date.now()
+        };
+
+        await setDoc(roomRef, initialRoom);
+
+        OnlineState.roomCode = code;
+        OnlineState.role = 'host';
+        OnlineState.roomData = initialRoom;
+        OnlineState.lastRoundId = 1;
+        OnlineState.hasNotifiedFriendConnected = false;
+        OnlineState.hasNotifiedFriendReady = false;
+        AppState.boards[0] = createBoardState('My Board', true);
+
+        subscribeToRoom(code);
+        SoundFX.playPop(3);
+        showToast(`Room #${code} created! Share the code with your friend.`);
+      } catch (err) {
+        console.error('Create room error:', err);
+        showToast('Could not create room. Please try again.');
+      } finally {
+        OnlineState.isConnecting = false;
+        renderApp();
+      }
+    }
+
+    // Join an existing room using a 5-digit code
+    async function joinOnlineRoom() {
+      if (!OnlineState.authReady || !OnlineState.user) {
+        showToast('Connecting to online service...');
+        return;
+      }
+      const code = (OnlineState.joinInput || '').trim().toUpperCase();
+      if (code.length < 4) {
+        showToast('Enter the 5-digit room code from your friend');
+        return;
+      }
+      if (OnlineState.isConnecting) return;
+
+      OnlineState.isConnecting = true;
+      renderApp();
+
+      try {
+        const roomRef = getRoomDocRef(code);
+        const snap = await getDoc(roomRef);
+
+        if (!snap.exists()) {
+          showToast(`Room #${code} not found. Check the code!`);
+          OnlineState.isConnecting = false;
+          renderApp();
+          return;
+        }
+
+        const data = snap.data();
+        const myPlayerId = OnlineState.playerId;
+        let assignedRole = null;
+
+        if (data.hostPlayerId === myPlayerId) {
+          assignedRole = 'host';
+        } else if (!data.guestPlayerId || data.guestPlayerId === myPlayerId) {
+          assignedRole = 'guest';
+          await updateDoc(roomRef, {
+            guestUid: OnlineState.user.uid,
+            guestPlayerId: myPlayerId,
+            updatedAt: Date.now()
+          });
+        } else {
+          showToast('This room already has 2 players!');
+          OnlineState.isConnecting = false;
+          renderApp();
+          return;
+        }
+
+        OnlineState.roomCode = code;
+        OnlineState.role = assignedRole;
+        OnlineState.roomData = {
+          ...data,
+          guestUid: assignedRole === 'guest' ? OnlineState.user.uid : data.guestUid,
+          guestPlayerId: assignedRole === 'guest' ? myPlayerId : data.guestPlayerId
+        };
+        OnlineState.lastRoundId = data.roundId || 1;
+        OnlineState.hasNotifiedFriendConnected = isFriendConnectedInRoom(OnlineState.roomData);
+        OnlineState.hasNotifiedFriendReady = isFriendReadyInRoom(OnlineState.roomData);
+        AppState.boards[0] = createBoardState('My Board', true);
+
+        subscribeToRoom(code);
+        SoundFX.playLetterUnlock(3);
+        triggerHaptic([20, 40, 20]);
+        showToast(`🎉 Connected to friend in Room #${code}!`);
+      } catch (err) {
+        console.error('Join room error:', err);
+        showToast('Could not join room. Check connection.');
+      } finally {
+        OnlineState.isConnecting = false;
+        renderApp();
+      }
+    }
+
+    // Real-time listener for shared called numbers & room events (boards stay 100% private)
+    function subscribeToRoom(code) {
+      if (OnlineState.unsubscribe) {
+        OnlineState.unsubscribe();
+        OnlineState.unsubscribe = null;
+      }
+      if (!OnlineState.user) return;
+
+      const roomRef = getRoomDocRef(code);
+      OnlineState.unsubscribe = onSnapshot(
+        roomRef,
+        (snapshot) => {
+          if (!snapshot.exists()) {
+            showToast('Room ended.');
+            leaveOnlineRoom(true);
+            return;
+          }
+
+          const data = snapshot.data();
+          OnlineState.roomData = data;
+
+          // 1. Notify the moment the friend connects to the room!
+          const friendConnectedNow = isFriendConnectedInRoom(data);
+          if (friendConnectedNow && !OnlineState.hasNotifiedFriendConnected) {
+            OnlineState.hasNotifiedFriendConnected = true;
+            SoundFX.playLetterUnlock(2);
+            triggerHaptic([25, 45, 25]);
+            showToast('🎉 Friend connected! Both players are in the room!');
+          } else if (!friendConnectedNow && OnlineState.hasNotifiedFriendConnected) {
+            OnlineState.hasNotifiedFriendConnected = false;
+            OnlineState.hasNotifiedFriendReady = false;
+            showToast('⚠️ Friend disconnected from the room.');
+          }
+
+          // 2. Notify when friend locks their 1–25 grid and is ready to play
+          const friendReadyNow = isFriendReadyInRoom(data);
+          if (friendConnectedNow && friendReadyNow && !OnlineState.hasNotifiedFriendReady) {
+            OnlineState.hasNotifiedFriendReady = true;
+            SoundFX.playLetterUnlock(3);
+            triggerHaptic([20, 35, 20]);
+            showToast('✅ Friend locked their 1–25 grid & is ready!');
+          } else if (!friendReadyNow) {
+            OnlineState.hasNotifiedFriendReady = false;
+          }
+
+          // 3. Detect if a new round was started in the same room
+          if (data.roundId && data.roundId > OnlineState.lastRoundId) {
+            OnlineState.lastRoundId = data.roundId;
+            OnlineState.hasNotifiedFriendReady = false;
+            AppState.boards[0] = createBoardState('My Board', true);
+            dismissVictoryModal();
+            SoundFX.playPop(2);
+            showToast('🔄 New round started! Arrange your 1–25 grid.');
+            renderApp();
+            return;
+          }
+
+          // 4. Sync calledNumbers onto our local board if we are in 'playing' phase
+          const board = AppState.boards[0];
+          if (board.phase === 'playing') {
+            syncCalledNumbersToLocalBoard(board, data);
+          }
+
+          // 5. Resolve Win / Tie / Loss accurately using unique playerId
+          if (data.winner) {
+            const iAmWinner = data.winner.playerId === OnlineState.playerId;
+            const iAlsoReachedFive = board.phase === 'playing' && board.completedLineIds.length >= 5;
+
+            if (!board.hasCelebratedWin) {
+              board.hasCelebratedWin = true;
+
+              if (data.winner.isTie || (iAmWinner && iAlsoReachedFive && data.winner.tieWithFriend)) {
+                SoundFX.playBingoFanfare();
+                Confetti.launch();
+                openOnlineVictoryModal('tie', data.winner);
+              } else if (iAmWinner) {
+                SoundFX.playBingoFanfare();
+                Confetti.launch();
+                openOnlineVictoryModal('win', data.winner);
+              } else if (iAlsoReachedFive) {
+                // Both players completed 5 lines on the exact same called number!
+                SoundFX.playBingoFanfare();
+                Confetti.launch();
+                openOnlineVictoryModal('tie', data.winner);
+                updateDoc(roomRef, {
+                  'winner.isTie': true,
+                  updatedAt: Date.now()
+                }).catch(() => {});
+              } else {
+                SoundFX.playUncross();
+                openOnlineVictoryModal('lose', data.winner);
+              }
+            } else if (iAmWinner && data.winner.isTie) {
+              // Update host/initiator modal if friend simultaneously tied on the same number
+              openOnlineVictoryModal('tie', data.winner);
+            }
+          }
+
+          renderApp();
+        },
+        (error) => {
+          console.error('Room listener error:', error);
+          showToast('Connection hiccup — reconnecting...');
+        }
+      );
+    }
+
+    // Apply the room's calledNumbers list onto our private board (auto-cross & auto-uncross)
+    function syncCalledNumbersToLocalBoard(board, roomData) {
+      const serverCalls = Array.isArray(roomData.calledNumbers) ? roomData.calledNumbers : [];
+      const serverSet = new Set(serverCalls);
+
+      let changed = false;
+      for (let i = 0; i < 25; i++) {
+        const num = board.grid[i];
+        const shouldBeCrossed = serverSet.has(num);
+        if (board.crossed[i] !== shouldBeCrossed) {
+          board.crossed[i] = shouldBeCrossed;
+          changed = true;
+        }
+      }
+
+      if (!changed) return;
+
+      // Rebuild sequence history in exact spoken/tapped order
+      board.history = serverCalls
+        .map(num => ({ num, index: board.grid.indexOf(num) }))
+        .filter(item => item.index !== -1);
+
+      const evalResult = evaluateBoardLines(board);
+
+      // Update our unlocked letter count in Firestore so friend sees B-I-N-G-O progress (never numbers!)
+      syncMyReadyAndLettersToRoom();
+
+      // Feedback when friend initiated the cross/uncross
+      if (roomData.lastActionBy && roomData.lastActionBy !== OnlineState.playerId) {
+        if (roomData.lastActionType === 'cross') {
+          if (evalResult.newCount >= 5 && !roomData.winner && !board.hasCelebratedWin) {
+            board.hasCelebratedWin = true;
+            triggerHaptic([40, 50, 40, 50, 100]);
+            SoundFX.playBingoFanfare();
+            Confetti.launch();
+            const winPayload = {
+              playerId: OnlineState.playerId,
+              role: OnlineState.role,
+              lines: evalResult.newCount,
+              calls: serverCalls.length,
+              triggerNum: roomData.lastActionNum
+            };
+            claimOnlineWinIfNeeded(winPayload);
+            openOnlineVictoryModal('win', winPayload);
+          } else if (evalResult.gainedLetter && !roomData.winner) {
+            const letterChar = BINGO_LETTERS[Math.min(evalResult.newCount - 1, 4)].char;
+            triggerHaptic([25, 40, 35]);
+            SoundFX.playLetterUnlock(evalResult.newCount);
+            showToast(`Friend cut #${roomData.lastActionNum} → You unlocked "${letterChar}"! Your turn!`);
+          } else if (!roomData.winner) {
+            triggerHaptic(14);
+            SoundFX.playCross();
+            showToast(`Friend cut #${roomData.lastActionNum} — Your turn!`);
+          }
+        } else if (roomData.lastActionType === 'uncross') {
+          triggerHaptic(8);
+          SoundFX.playUncross();
+          showToast(`Friend undid #${roomData.lastActionNum} — waiting for their pick`);
+        }
+      }
+    }
+
+    // Push a local cross or uncross action to the shared room document and pass the turn
+    async function pushOnlineNumberToggle(num, shouldCross) {
+      if (!OnlineState.roomCode || !OnlineState.user || !OnlineState.roomData) return;
+
+      const roomRef = getRoomDocRef(OnlineState.roomCode);
+      const currentCalls = Array.isArray(OnlineState.roomData.calledNumbers)
+        ? [...OnlineState.roomData.calledNumbers]
+        : [];
+
+      let nextCalls;
+      if (shouldCross) {
+        nextCalls = currentCalls.includes(num) ? currentCalls : [...currentCalls, num];
+      } else {
+        nextCalls = currentCalls.filter(n => n !== num);
+      }
+
+      const board = AppState.boards[0];
+      const letterField = OnlineState.role === 'host' ? 'hostLetters' : 'guestLetters';
+      const newLetterCount = Math.min(board.completedLineIds.length, 5);
+      const nextTurn = shouldCross
+        ? (OnlineState.role === 'host' ? 'guest' : 'host')
+        : OnlineState.role;
+
+      const payload = {
+        calledNumbers: nextCalls,
+        currentTurn: nextTurn,
+        lastActionBy: OnlineState.playerId,
+        lastActionType: shouldCross ? 'cross' : 'uncross',
+        lastActionNum: num,
+        [letterField]: newLetterCount,
+        updatedAt: Date.now()
+      };
+
+      if (newLetterCount >= 5 && !OnlineState.roomData.winner) {
+        payload.winner = {
+          playerId: OnlineState.playerId,
+          role: OnlineState.role,
+          lines: board.completedLineIds.length,
+          calls: nextCalls.length,
+          triggerNum: num
+        };
+      }
+
+      try {
+        await updateDoc(roomRef, payload);
+      } catch (err) {
+        console.error('Failed to sync number:', err);
+        showToast('Sync error — check connection');
+      }
+    }
+
+    // Update ready flag & letter count without exposing board layout
+    async function syncMyReadyAndLettersToRoom() {
+      if (!OnlineState.roomCode || !OnlineState.user) return;
+      const board = AppState.boards[0];
+      const readyField = OnlineState.role === 'host' ? 'hostReady' : 'guestReady';
+      const letterField = OnlineState.role === 'host' ? 'hostLetters' : 'guestLetters';
+
+      try {
+        await updateDoc(getRoomDocRef(OnlineState.roomCode), {
+          [readyField]: board.phase === 'playing',
+          [letterField]: Math.min(board.completedLineIds.length, 5),
+          updatedAt: Date.now()
+        });
+      } catch (err) {
+        console.warn('Ready sync warning:', err);
+      }
+    }
+
+    async function claimOnlineWinIfNeeded(winPayload) {
+      if (!OnlineState.roomCode || !OnlineState.user || OnlineState.roomData?.winner) return;
+      try {
+        await updateDoc(getRoomDocRef(OnlineState.roomCode), {
+          winner: winPayload,
+          updatedAt: Date.now()
+        });
+      } catch (err) {
+        console.warn('Claim win warning:', err);
+      }
+    }
+
+    // Start a fresh round inside the connected online room (alternates who goes first)
+    async function startNewOnlineRound() {
+      dismissVictoryModal();
+      if (!OnlineState.roomCode || !OnlineState.user) return;
+
+      const nextRound = (OnlineState.roomData?.roundId || 1) + 1;
+      const prevStart = OnlineState.roomData?.startingTurn || 'host';
+      const nextStart = prevStart === 'host' ? 'guest' : 'host';
+
+      OnlineState.lastRoundId = nextRound;
+      OnlineState.hasNotifiedFriendReady = false;
+      AppState.boards[0] = createBoardState('My Board', true);
+      renderApp();
+
+      try {
+        await updateDoc(getRoomDocRef(OnlineState.roomCode), {
+          hostReady: false,
+          guestReady: false,
+          hostLetters: 0,
+          guestLetters: 0,
+          startingTurn: nextStart,
+          currentTurn: nextStart,
+          calledNumbers: [],
+          lastActionBy: OnlineState.playerId,
+          lastActionType: 'reset',
+          lastActionNum: null,
+          roundId: nextRound,
+          winner: null,
+          updatedAt: Date.now()
+        });
+      } catch (err) {
+        console.error('New round error:', err);
+      }
+    }
+
+    // Leave the current online room cleanly
+    function leaveOnlineRoom(silent = false) {
+      if (OnlineState.unsubscribe) {
+        OnlineState.unsubscribe();
+        OnlineState.unsubscribe = null;
+      }
+      OnlineState.roomCode = null;
+      OnlineState.role = null;
+      OnlineState.roomData = null;
+      OnlineState.hasNotifiedFriendConnected = false;
+      OnlineState.hasNotifiedFriendReady = false;
+      AppState.boards[0] = createBoardState('My Board', true);
+      if (!silent) showToast('Left online room');
+      renderApp();
+    }
+
+    // Copy room code using document.execCommand('copy') for reliable iFrame support
+    function copyRoomCode() {
+      if (!OnlineState.roomCode) return;
+      const textArea = document.createElement('textarea');
+      textArea.value = OnlineState.roomCode;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      textArea.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        triggerHaptic(15);
+        showToast(`Copied Room Code: ${OnlineState.roomCode}`);
+      } catch (err) {
+        showToast(`Room Code: ${OnlineState.roomCode}`);
+      }
+      document.body.removeChild(textArea);
+    }
+
+    /* ============================================================================
+       1. SOUND EFFECTS ENGINE (Tone.js procedural synthesis - zero external URLs)
+       ============================================================================ */
+    const SoundFX = {
+      enabled: true,
+      initialized: false,
+      synth: null,
+
+      // Safely initialize Tone.js audio context upon first user interaction
+      async init() {
+        if (this.initialized || !this.enabled) return;
+        try {
+          if (typeof Tone !== 'undefined') {
+            await Tone.start();
+            this.synth = new Tone.PolySynth(Tone.Synth, {
+              oscillator: { type: 'triangle' },
+              envelope: { attack: 0.01, decay: 0.14, sustain: 0.05, release: 0.2 }
+            }).toDestination();
+            this.synth.volume.value = -8;
+            this.initialized = true;
+          }
+        } catch (err) {
+          console.warn('Audio init skipped:', err);
+        }
+      },
+
+      // Crisp pop when placing or swapping numbers during grid setup
+      async playPop(step = 0) {
+        if (!this.enabled) return;
+        await this.init();
+        if (!this.synth) return;
+        try {
+          const notes = ['C5', 'D5', 'E5', 'G5', 'A5'];
+          const note = notes[step % notes.length];
+          this.synth.triggerAttackRelease(note, '32n');
+        } catch (e) {}
+      },
+
+      // Satisfying pen-slash tick when crossing out a number
+      async playCross() {
+        if (!this.enabled) return;
+        await this.init();
+        if (!this.synth) return;
+        try {
+          this.synth.triggerAttackRelease('G4', '32n');
+          setTimeout(() => {
+            if (this.synth) this.synth.triggerAttackRelease('C5', '32n');
+          }, 55);
+        } catch (e) {}
+      },
+
+      // Subtle downward blip when uncrossing/undoing a number
+      async playUncross() {
+        if (!this.enabled) return;
+        await this.init();
+        if (!this.synth) return;
+        try {
+          this.synth.triggerAttackRelease('E4', '32n');
+        } catch (e) {}
+      },
+
+      // Ascending celebratory chime when unlocking B, I, N, G, or O
+      async playLetterUnlock(letterCount) {
+        if (!this.enabled) return;
+        await this.init();
+        if (!this.synth) return;
+        try {
+          const scale = ['C5', 'D5', 'E5', 'G5', 'A5', 'C6'];
+          const target = scale[Math.min(letterCount, scale.length - 1)];
+          this.synth.triggerAttackRelease(['C5', target], '16n');
+        } catch (e) {}
+      },
+
+      // Joyful major fanfare when reaching 5 lines (full BINGO!)
+      async playBingoFanfare() {
+        if (!this.enabled) return;
+        await this.init();
+        if (!this.synth) return;
+        try {
+          const now = Tone.now();
+          this.synth.triggerAttackRelease('C5', '16n', now);
+          this.synth.triggerAttackRelease('E5', '16n', now + 0.09);
+          this.synth.triggerAttackRelease('G5', '16n', now + 0.18);
+          this.synth.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '4n', now + 0.28);
+        } catch (e) {}
+      }
+    };
+
+    // Subtle mobile haptic vibration helper (gracefully ignored on unsupported browsers)
+    function triggerHaptic(pattern = 12) {
+      try {
+        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+          navigator.vibrate(pattern);
+        }
+      } catch (e) {}
+    }
+
+    /* ============================================================================
+       2. CONFETTI CELEBRATION ENGINE (Lightweight HTML5 Canvas particle burst)
+       ============================================================================ */
+    const Confetti = {
+      particles: [],
+      animFrame: null,
+
+      launch() {
+        const canvas = document.getElementById('confetti-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const colors = ['#f43f5e', '#f59e0b', '#10b981', '#0ea5e9', '#8b5cf6', '#ec4899'];
+        this.particles = Array.from({ length: 120 }, () => ({
+          x: canvas.width * (0.2 + Math.random() * 0.6),
+          y: canvas.height * 0.35,
+          vx: (Math.random() - 0.5) * 14,
+          vy: -6 - Math.random() * 10,
+          size: 6 + Math.random() * 6,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          rotation: Math.random() * 360,
+          vRot: (Math.random() - 0.5) * 12,
+          gravity: 0.32 + Math.random() * 0.12,
+          alpha: 1
+        }));
+
+        if (this.animFrame) cancelAnimationFrame(this.animFrame);
+
+        const step = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          let alive = 0;
+
+          for (const p of this.particles) {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += p.gravity;
+            p.vx *= 0.985;
+            p.rotation += p.vRot;
+            if (p.y > canvas.height * 0.75) {
+              p.alpha -= 0.025;
+            }
+
+            if (p.alpha > 0) {
+              alive++;
+              ctx.save();
+              ctx.globalAlpha = Math.max(0, p.alpha);
+              ctx.translate(p.x, p.y);
+              ctx.rotate((p.rotation * Math.PI) / 180);
+              ctx.fillStyle = p.color;
+              ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+              ctx.restore();
+            }
+          }
+
+          if (alive > 0) {
+            this.animFrame = requestAnimationFrame(step);
+          } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            this.animFrame = null;
+          }
+        };
+
+        this.animFrame = requestAnimationFrame(step);
+      }
+    };
+
+    /* ============================================================================
+       3. BINGO RULES, LINES & STATE INITIALIZATION
+       ============================================================================ */
+    const BINGO_LETTERS = [
+      { char: 'B', color: 'from-rose-500 to-pink-600', ring: 'ring-rose-300 dark:ring-rose-500/50' },
+      { char: 'I', color: 'from-amber-500 to-orange-600', ring: 'ring-amber-300 dark:ring-amber-500/50' },
+      { char: 'N', color: 'from-emerald-500 to-teal-600', ring: 'ring-emerald-300 dark:ring-emerald-500/50' },
+      { char: 'G', color: 'from-sky-500 to-blue-600', ring: 'ring-sky-300 dark:ring-sky-500/50' },
+      { char: 'O', color: 'from-purple-500 to-indigo-600', ring: 'ring-purple-300 dark:ring-purple-500/50' }
+    ];
+
+    // All 12 possible 5-in-a-row lines on a 5x5 grid (5 rows, 5 columns, 2 diagonals)
+    const ALL_LINES = (() => {
+      const lines = [];
+      for (let r = 0; r < 5; r++) {
+        lines.push({
+          id: `row-${r}`,
+          label: `Row ${r + 1}`,
+          cells: [0, 1, 2, 3, 4].map(c => r * 5 + c)
+        });
+      }
+      for (let c = 0; c < 5; c++) {
+        lines.push({
+          id: `col-${c}`,
+          label: `Col ${c + 1}`,
+          cells: [0, 1, 2, 3, 4].map(r => r * 5 + c)
+        });
+      }
+      lines.push({
+        id: 'diag-main',
+        label: 'Diag ↘',
+        cells: [0, 6, 12, 18, 24]
+      });
+      lines.push({
+        id: 'diag-anti',
+        label: 'Diag ↙',
+        cells: [4, 8, 12, 16, 20]
+      });
+      return lines;
+    })();
+
+    // Generate a Fisher-Yates shuffled array of integers 1 through 25
+    function generateShuffledNumbers() {
+      const nums = Array.from({ length: 25 }, (_, i) => i + 1);
+      for (let i = nums.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [nums[i], nums[j]] = [nums[j], nums[i]];
+      }
+      return nums;
+    }
+
+    // Create a fresh board state object
+    function createBoardState(name, autoFill = true) {
+      return {
+        name,
+        phase: 'setup', // 'setup' | 'playing'
+        grid: autoFill ? generateShuffledNumbers() : Array(25).fill(0),
+        crossed: Array(25).fill(false),
+        history: [],
+        completedLineIds: [],
+        selectedSwapIdx: null,
+        hidden: false,
+        hasCelebratedWin: false
+      };
+    }
+
+    // Master Application State
+    const AppState = {
+      mode: 'solo', // 'solo' | 'online' | 'duo'
+      mobileActivePlayerTab: 0, // Active board tab on mobile screens in 2-Player mode
+      duoTurn: 0, // Strict turn tracker in 2-Player mode: 0 = Player 1, 1 = Player 2
+      syncDuoCalls: true, // In 2-player mode, crossing a number automatically crosses it on both boards
+      activeModalBoardIndex: 0,
+      boards: [
+        createBoardState('Player 1', true),
+        createBoardState('Player 2', true)
+      ]
+    };
+
+    // Find the lowest number between 1 and 25 not yet placed on the grid
+    function getNextMissingNumber(grid) {
+      const present = new Set(grid);
+      for (let n = 1; n <= 25; n++) {
+        if (!present.has(n)) return n;
+      }
+      return null;
+    }
+
+    // Recalculate completed rows, columns, and diagonals while preserving unlock order
+    function evaluateBoardLines(board) {
+      const prevCount = board.completedLineIds.length;
+      const currentlyComplete = new Set(
+        ALL_LINES.filter(line => line.cells.every(idx => board.crossed[idx])).map(line => line.id)
+      );
+
+      // Keep previously unlocked lines that are still complete in their original order
+      const updated = board.completedLineIds.filter(id => currentlyComplete.has(id));
+      for (const id of currentlyComplete) {
+        if (!updated.includes(id)) {
+          updated.push(id);
+        }
+      }
+
+      board.completedLineIds = updated;
+      const newCount = updated.length;
+      return {
+        prevCount,
+        newCount,
+        gainedLetter: newCount > prevCount
+      };
+    }
+
+    /* ============================================================================
+       4. INTERACTIVE SETUP & GAMEPLAY HANDLERS
+       ============================================================================ */
+
+    // Handle tapping a cell during SETUP phase (Place 1..25 sequentially or swap existing numbers)
+    function handleSetupCellClick(boardIdx, cellIdx) {
+      const board = AppState.boards[boardIdx];
+      if (board.phase !== 'setup') return;
+
+      const currentVal = board.grid[cellIdx];
+
+      // Case A: Cell is empty -> Place the next missing number (1 -> 2 -> 3 ... -> 25)
+      if (currentVal === 0) {
+        const nextNum = getNextMissingNumber(board.grid);
+        if (nextNum !== null) {
+          board.grid[cellIdx] = nextNum;
+          board.selectedSwapIdx = null;
+          triggerHaptic(10);
+          SoundFX.playPop(nextNum);
+          renderApp();
+        }
+        return;
+      }
+
+      // Case B: Cell already has a number -> Select it for swapping, or swap with previously selected cell
+      if (board.selectedSwapIdx === null) {
+        board.selectedSwapIdx = cellIdx;
+        triggerHaptic(10);
+        SoundFX.playPop(0);
+        renderApp();
+      } else if (board.selectedSwapIdx === cellIdx) {
+        // Deselect if tapped again
+        board.selectedSwapIdx = null;
+        renderApp();
+      } else {
+        // Swap the two numbers!
+        const firstIdx = board.selectedSwapIdx;
+        [board.grid[firstIdx], board.grid[cellIdx]] = [board.grid[cellIdx], board.grid[firstIdx]];
+        board.selectedSwapIdx = null;
+        triggerHaptic([12, 30, 12]);
+        SoundFX.playPop(3);
+        showToast(`Swapped ${board.grid[cellIdx]} & ${board.grid[firstIdx]}`);
+        renderApp();
+      }
+    }
+
+    // Shuffle all 25 numbers randomly on a setup board
+    function shuffleBoard(boardIdx) {
+      const board = AppState.boards[boardIdx];
+      board.grid = generateShuffledNumbers();
+      board.selectedSwapIdx = null;
+      SoundFX.playPop(4);
+      renderApp();
+    }
+
+    // Clear all 25 cells so the user can tap cells in custom 1 -> 25 sequence
+    function clearBoardForManualEntry(boardIdx) {
+      const board = AppState.boards[boardIdx];
+      board.grid = Array(25).fill(0);
+      board.selectedSwapIdx = null;
+      SoundFX.playUncross();
+      showToast('Tap boxes in order to place 1 → 25!');
+      renderApp();
+    }
+
+    // Auto-fill any remaining empty cells randomly while keeping numbers the user already placed
+    function autoFillRemaining(boardIdx) {
+      const board = AppState.boards[boardIdx];
+      const present = new Set(board.grid.filter(n => n > 0));
+      const missing = [];
+      for (let n = 1; n <= 25; n++) {
+        if (!present.has(n)) missing.push(n);
+      }
+      // Shuffle missing numbers
+      for (let i = missing.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [missing[i], missing[j]] = [missing[j], missing[i]];
+      }
+      let mIdx = 0;
+      for (let i = 0; i < 25; i++) {
+        if (board.grid[i] === 0 && mIdx < missing.length) {
+          board.grid[i] = missing[mIdx++];
+        }
+      }
+      board.selectedSwapIdx = null;
+      triggerHaptic(12);
+      SoundFX.playPop(3);
+      renderApp();
+    }
+
+    // Lock the 1-25 setup grid and start playing
+    function lockBoardAndPlay(boardIdx) {
+      const board = AppState.boards[boardIdx];
+      if (board.grid.includes(0)) {
+        showToast('Please place all numbers 1 to 25 first!');
+        return;
+      }
+      board.phase = 'playing';
+      board.selectedSwapIdx = null;
+      triggerHaptic([15, 30, 20]);
+      SoundFX.playLetterUnlock(1);
+
+      if (AppState.mode === 'online' && OnlineState.roomCode) {
+        syncMyReadyAndLettersToRoom();
+        const data = OnlineState.roomData || {};
+        if (isFriendConnectedInRoom(data) && isFriendReadyInRoom(data)) {
+          const isMyTurn = (data.currentTurn || 'host') === OnlineState.role;
+          showToast(isMyTurn ? '🟢 Both ready! Your turn to cross 1 number!' : '⏳ Both ready! Waiting for friend to cross 1 number...');
+        } else {
+          showToast('🔒 Grid locked! Waiting for friend...');
+        }
+      } else {
+        showToast(`${board.name} locked! Tap any number to cross it off.`);
+      }
+
+      renderApp();
+    }
+
+    // Handle tapping a number during PLAYING phase (Enforces 1 cross per player at a time in Online & 2-Player modes)
+    function handlePlayCellClick(boardIdx, cellIdx) {
+      const board = AppState.boards[boardIdx];
+      if (board.phase !== 'playing') return;
+
+      const clickedNumber = board.grid[cellIdx];
+      const isAlreadyCrossed = board.crossed[cellIdx];
+
+      if (AppState.mode === 'online' && OnlineState.roomCode) {
+        const data = OnlineState.roomData || {};
+        if (!isFriendConnectedInRoom(data)) {
+          showToast(`⏳ Wait for your friend to join Room #${OnlineState.roomCode} first!`);
+          return;
+        }
+        if (!isFriendReadyInRoom(data)) {
+          showToast('⏳ Wait for your friend to lock their 1–25 grid first!');
+          return;
+        }
+
+        const activeTurn = data.currentTurn || 'host';
+        if (activeTurn !== OnlineState.role) {
+          triggerHaptic(8);
+          showToast("⏳ Wait! It's your friend's turn to cross 1 number.");
+          return;
+        }
+
+        if (isAlreadyCrossed) {
+          showToast('Already crossed! Tap an uncrossed number for your turn.');
+          return;
+        }
+
+        toggleSingleBoardCell(0, cellIdx, true);
+        pushOnlineNumberToggle(clickedNumber, true);
+      } else if (AppState.mode === 'duo' && AppState.boards[0].phase === 'playing' && AppState.boards[1].phase === 'playing') {
+        if (boardIdx !== AppState.duoTurn) {
+          triggerHaptic(8);
+          showToast(`⏳ It's ${AppState.boards[AppState.duoTurn].name}'s turn to cross 1 number!`);
+          return;
+        }
+
+        if (isAlreadyCrossed) {
+          showToast('Already crossed! Tap an uncrossed number for your turn.');
+          return;
+        }
+
+        AppState.duoTurn = AppState.duoTurn === 0 ? 1 : 0;
+
+        if (AppState.syncDuoCalls) {
+          toggleNumberAcrossBoards(clickedNumber, true);
+        } else {
+          toggleSingleBoardCell(boardIdx, cellIdx, true);
+        }
+      } else {
+        toggleSingleBoardCell(boardIdx, cellIdx, !isAlreadyCrossed);
+      }
+    }
+
+    // Toggle a specific cell on one board
+    function toggleSingleBoardCell(boardIdx, cellIdx, shouldCross) {
+      const board = AppState.boards[boardIdx];
+      const num = board.grid[cellIdx];
+
+      if (shouldCross && !board.crossed[cellIdx]) {
+        board.crossed[cellIdx] = true;
+        board.history.push({ num, index: cellIdx });
+
+        const evalResult = evaluateBoardLines(board);
+
+        if (evalResult.newCount >= 5 && !board.hasCelebratedWin) {
+          board.hasCelebratedWin = true;
+          triggerHaptic([40, 50, 40, 50, 100]);
+          SoundFX.playBingoFanfare();
+          Confetti.launch();
+          if (AppState.mode === 'online') {
+            openOnlineVictoryModal('win', {
+              playerId: OnlineState.playerId,
+              calls: board.history.length,
+              lines: evalResult.newCount,
+              triggerNum: num
+            });
+          } else {
+            openVictoryModal(board);
+          }
+        } else if (evalResult.gainedLetter) {
+          const unlockedIdx = Math.min(evalResult.newCount - 1, 4);
+          const letterObj = BINGO_LETTERS[unlockedIdx];
+          triggerHaptic([25, 40, 35]);
+          SoundFX.playLetterUnlock(evalResult.newCount);
+          showToast(AppState.mode === 'online'
+            ? `You cut #${num} → Unlocked "${letterObj.char}"!`
+            : `Line complete! Unlocked "${letterObj.char}"!`);
+        } else {
+          triggerHaptic(14);
+          SoundFX.playCross();
+          if (AppState.mode === 'online') {
+            showToast(`You cut #${num} on both boards`);
+          }
+        }
+      } else if (!shouldCross && board.crossed[cellIdx]) {
+        board.crossed[cellIdx] = false;
+        board.history = board.history.filter(item => item.index !== cellIdx);
+        evaluateBoardLines(board);
+        triggerHaptic(8);
+        SoundFX.playUncross();
+      }
+
+      renderApp();
+    }
+
+    // Toggle a spoken number simultaneously on both boards in 2-Player mode
+    function toggleNumberAcrossBoards(spokenNum, shouldCross) {
+      let anyWon = null;
+      let anyLetter = false;
+
+      AppState.boards.forEach((board, bIdx) => {
+        const cellIdx = board.grid.indexOf(spokenNum);
+        if (cellIdx === -1) return;
+
+        if (shouldCross && !board.crossed[cellIdx]) {
+          board.crossed[cellIdx] = true;
+          board.history.push({ num: spokenNum, index: cellIdx });
+          const res = evaluateBoardLines(board);
+          if (res.newCount >= 5 && !board.hasCelebratedWin) {
+            board.hasCelebratedWin = true;
+            anyWon = board;
+          } else if (res.gainedLetter) {
+            anyLetter = true;
+          }
+        } else if (!shouldCross && board.crossed[cellIdx]) {
+          board.crossed[cellIdx] = false;
+          board.history = board.history.filter(item => item.index !== cellIdx);
+          evaluateBoardLines(board);
+        }
+      });
+
+      if (anyWon) {
+        triggerHaptic([40, 50, 40, 50, 100]);
+        SoundFX.playBingoFanfare();
+        Confetti.launch();
+        openVictoryModal(anyWon);
+      } else if (anyLetter) {
+        triggerHaptic([25, 40, 35]);
+        SoundFX.playLetterUnlock(2);
+        showToast(`Cut #${spokenNum} on both boards — Line unlocked!`);
+      } else {
+        triggerHaptic(14);
+        SoundFX.playCross();
+        showToast(`Cut #${spokenNum} on both boards`);
+      }
+
+      renderApp();
+    }
+
+    // Undo the most recently crossed number in the sequence (respecting turn ownership)
+    function undoLastCross(boardIdx) {
+      const board = AppState.boards[boardIdx];
+      if (board.history.length === 0) return;
+
+      const lastEntry = board.history[board.history.length - 1];
+      if (AppState.mode === 'online' && OnlineState.roomCode) {
+        const data = OnlineState.roomData || {};
+        const canUndoOwnLastMove =
+          data.lastActionBy === OnlineState.playerId &&
+          data.lastActionType === 'cross' &&
+          (data.currentTurn || 'host') !== OnlineState.role;
+
+        if (!canUndoOwnLastMove) {
+          showToast('You can only undo your own move before your friend crosses.');
+          return;
+        }
+
+        toggleSingleBoardCell(0, lastEntry.index, false);
+        pushOnlineNumberToggle(lastEntry.num, false);
+        showToast(`Undid #${lastEntry.num} — pick your number`);
+      } else if (AppState.mode === 'duo' && AppState.boards[0].phase === 'playing' && AppState.boards[1].phase === 'playing') {
+        AppState.duoTurn = AppState.duoTurn === 0 ? 1 : 0;
+        if (AppState.syncDuoCalls) {
+          toggleNumberAcrossBoards(lastEntry.num, false);
+        } else {
+          toggleSingleBoardCell(boardIdx, lastEntry.index, false);
+        }
+        showToast(`Undid #${lastEntry.num} — ${AppState.boards[AppState.duoTurn].name}'s turn`);
+      } else {
+        toggleSingleBoardCell(boardIdx, lastEntry.index, false);
+        showToast(`Uncrossed #${lastEntry.num}`);
+      }
+    }
+
+    // Toggle privacy cover in 2-Player mode so Player 2 can't peek during setup
+    function togglePrivacyCover(boardIdx) {
+      AppState.boards[boardIdx].hidden = !AppState.boards[boardIdx].hidden;
+      SoundFX.playPop(1);
+      renderApp();
+    }
+
+    /* ============================================================================
+       5. UI RENDERING (Responsive, Tactile & Accessible)
+       ============================================================================ */
+
+    function switchMobilePlayerTab(tabIdx) {
+      AppState.mobileActivePlayerTab = tabIdx;
+      triggerHaptic(10);
+      SoundFX.playPop(tabIdx + 1);
+      renderApp();
+    }
+
+    function renderApp() {
+      const container = document.getElementById('app-container');
+      if (!container) return;
+
+      if (AppState.mode === 'solo') {
+        container.innerHTML = `
+          <div class="w-full max-w-md mx-auto flex flex-col gap-2.5 sm:gap-3">
+            ${renderBoardCard(0, false)}
+          </div>
+        `;
+      } else if (AppState.mode === 'online') {
+        if (!OnlineState.roomCode) {
+          container.innerHTML = renderOnlineLobby();
+        } else {
+          container.innerHTML = `
+            <div class="w-full max-w-md mx-auto flex flex-col gap-2.5 sm:gap-3">
+              ${renderOnlineRoomBanner()}
+              ${renderBoardCard(0, false)}
+            </div>
+          `;
+        }
+      } else {
+        const p1Lines = Math.min(AppState.boards[0].completedLineIds.length, 5);
+        const p2Lines = Math.min(AppState.boards[1].completedLineIds.length, 5);
+        const bothPlaying = AppState.boards[0].phase === 'playing' && AppState.boards[1].phase === 'playing';
+        const turnPlayerName = AppState.boards[AppState.duoTurn].name;
+        const word = 'BINGO';
+
+        container.innerHTML = `
+          <div class="w-full flex flex-col gap-2.5 sm:gap-3">
+            <!-- 2-Player Turn & Shared Call Sync Bar -->
+            <div class="bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-sm">
+              <div class="flex items-center gap-2 text-xs sm:text-sm font-bold">
+                ${bothPlaying ? `
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-200 font-extrabold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span>${turnPlayerName}'s Turn (1 Cross)</span>
+                  </span>
+                ` : `
+                  <span class="text-base">🎙️</span>
+                  <span class="text-slate-700 dark:text-slate-200">2-Player Turn Mode</span>
+                `}
+              </div>
+              <label class="inline-flex items-center gap-2 cursor-pointer text-[11px] sm:text-xs font-bold text-slate-600 dark:text-slate-300 min-h-[32px]">
+                <input type="checkbox" ${AppState.syncDuoCalls ? 'checked' : ''} onchange="toggleSyncDuoCalls(this.checked)"
+                  class="w-4 h-4 rounded accent-indigo-600 cursor-pointer" />
+                <span>Cross on both sheets</span>
+              </label>
+            </div>
+
+            <!-- Mobile-Only Player Tab Switcher (Avoids vertical scrolling on phones) -->
+            <div class="grid grid-cols-2 gap-2 md:hidden bg-white/90 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              ${[0, 1].map(idx => {
+                const isActive = AppState.mobileActivePlayerTab === idx;
+                const count = idx === 0 ? p1Lines : p2Lines;
+                const progressText = count > 0 ? word.slice(0, count) : '0/5';
+                return `
+                  <button type="button" onclick="switchMobilePlayerTab(${idx})"
+                    class="py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-between transition-all min-h-[44px] ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }">
+                    <span>${AppState.boards[idx].name}</span>
+                    <span class="px-2 py-0.5 rounded-lg font-game text-[11px] ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-100 dark:bg-slate-700 text-indigo-600 dark:text-indigo-300'
+                    }">
+                      ${progressText}
+                    </span>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- Side-by-Side (Tablet/Desktop) or Tabbed (Mobile) 2-Player Boards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              <div class="${AppState.mobileActivePlayerTab === 0 ? 'block' : 'hidden'} md:block">
+                ${renderBoardCard(0, true)}
+              </div>
+              <div class="${AppState.mobileActivePlayerTab === 1 ? 'block' : 'hidden'} md:block">
+                ${renderBoardCard(1, true)}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+    // Render the compact Online Room Status & Turn Banner above the player's private grid
+    function renderOnlineRoomBanner() {
+      const data = OnlineState.roomData || {};
+      const friendConnected = isFriendConnectedInRoom(data);
+      const friendReady = isFriendReadyInRoom(data);
+      const myReady = AppState.boards[0].phase === 'playing';
+      const bothReady = friendConnected && friendReady && myReady;
+      const isMyTurn = (data.currentTurn || 'host') === OnlineState.role;
+      const friendLetters = OnlineState.role === 'host' ? (data.guestLetters || 0) : (data.hostLetters || 0);
+      const word = 'BINGO';
+
+      return `
+        <div class="bg-white/95 dark:bg-slate-800/95 border ${friendConnected ? 'border-emerald-300 dark:border-emerald-700/80' : 'border-amber-300 dark:border-amber-700/80'} rounded-2xl p-3 shadow-sm flex flex-col gap-2 transition-colors">
+          <div class="flex items-center justify-between gap-2">
+            <!-- Room Code + Copy Pill -->
+            <div class="flex items-center gap-1.5 sm:gap-2">
+              <span class="px-2.5 py-1 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 font-game font-bold text-sm tracking-wider">
+                Room #${OnlineState.roomCode}
+              </span>
+              <button type="button" onclick="copyRoomCode()"
+                class="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1 btn-tactile">
+                <span>📋</span>
+                <span>Copy</span>
+              </button>
+            </div>
+
+            <!-- Leave Room Button -->
+            <button type="button" onclick="leaveOnlineRoom()"
+              class="px-2.5 py-1 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 btn-tactile">
+              Leave
+            </button>
+          </div>
+
+          <!-- Friend Connection & Privacy Strip (Shows connection & BINGO letters, NEVER their numbers) -->
+          <div class="flex items-center justify-between gap-2 text-xs px-2.5 py-2 rounded-xl ${
+            friendConnected
+              ? 'bg-emerald-50/90 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200'
+              : 'bg-amber-50/90 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200'
+          }">
+            <div class="flex items-center gap-2 font-bold">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0 ${friendConnected ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}"></span>
+              <span>
+                ${!friendConnected
+                  ? `Waiting for friend to enter #${OnlineState.roomCode}...`
+                  : friendReady
+                    ? 'Friend Connected • Ready & Hidden 🔒'
+                    : 'Friend Connected • Setting up 1–25...'}
+              </span>
+            </div>
+
+            ${friendConnected ? `
+              <span class="px-2 py-0.5 rounded-lg bg-white/90 dark:bg-slate-800 font-game font-bold text-indigo-600 dark:text-indigo-300 shrink-0 shadow-2xs">
+                Friend: ${friendLetters > 0 ? `${word.slice(0, friendLetters)} (${friendLetters}/5)` : '0/5'}
+              </span>
+            ` : ''}
+          </div>
+
+          <!-- Strict 1-Cross-Per-Turn Indicator when both players are in live game -->
+          ${bothReady && !data.winner ? `
+            <div class="px-3 py-2 rounded-xl text-xs font-extrabold flex items-center justify-between gap-2 ${
+              isMyTurn
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm'
+                : 'bg-amber-100/90 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/70 dark:border-amber-700/60'
+            }">
+              <span class="flex items-center gap-1.5">
+                <span>${isMyTurn ? '🟢' : '⏳'}</span>
+                <span>${isMyTurn ? 'YOUR TURN — Tap 1 number to cross' : "FRIEND'S TURN — Waiting for 1 cross..."}</span>
+              </span>
+              <span class="text-[10px] uppercase tracking-wider opacity-90 shrink-0">1 / Turn</span>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // Render the Online Room Lobby (Create or Join a 5-digit room code)
+    function renderOnlineLobby() {
+      if (!OnlineState.available) {
+        return `
+          <div class="w-full max-w-md mx-auto bg-white/95 dark:bg-slate-800/95 rounded-3xl p-6 shadow-xl border border-slate-200 dark:border-slate-700 text-center">
+            <div class="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 flex items-center justify-center mx-auto mb-3 text-2xl">⚠️</div>
+            <h2 class="font-game text-xl font-bold text-slate-800 dark:text-white mb-1.5">Online Sync Unavailable</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+              Online room service could not initialize in this environment. You can still play verbally in <strong>Solo</strong> mode or on one device in <strong>2-Player</strong> mode!
+            </p>
+            <button type="button" onclick="switchGameMode('solo')"
+              class="w-full py-3 rounded-2xl bg-indigo-600 text-white font-bold text-sm btn-tactile">
+              Switch to Solo Sheet
+            </button>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="w-full max-w-md mx-auto bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-200/80 dark:border-slate-700/80 flex flex-col gap-4">
+          <div class="text-center">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white flex items-center justify-center mx-auto mb-2.5 text-2xl shadow-lg shadow-indigo-500/20">
+              🌐
+            </div>
+            <h2 class="font-game text-2xl font-bold text-slate-800 dark:text-white">
+              Online Private Boards
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+              Your 1–25 grids stay <strong>100% hidden</strong> from each other. Take turns crossing 1 number at a time — every cut syncs automatically to both boards!
+            </p>
+          </div>
+
+          <!-- Option 1: Host a New Room -->
+          <div class="bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/70 dark:border-indigo-800/60 rounded-2xl p-4 flex flex-col gap-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">Start a Room</span>
+              <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">5-Digit Code</span>
+            </div>
+            <button type="button" onclick="createOnlineRoom()" ${OnlineState.isConnecting || !OnlineState.authReady ? 'disabled' : ''}
+              class="min-h-[48px] w-full py-3 px-4 rounded-2xl font-game font-bold text-base bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/25 hover:brightness-105 disabled:opacity-60 btn-tactile flex items-center justify-center gap-2">
+              <span>✨</span>
+              <span>${!OnlineState.authReady ? 'Connecting...' : OnlineState.isConnecting ? 'Creating Room...' : 'Create Room Code'}</span>
+            </button>
+          </div>
+
+          <div class="relative flex items-center justify-center">
+            <div class="border-t border-slate-200 dark:border-slate-700 w-full"></div>
+            <span class="bg-white dark:bg-slate-800 px-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">OR</span>
+            <div class="border-t border-slate-200 dark:border-slate-700 w-full"></div>
+          </div>
+
+          <!-- Option 2: Join Friend's Room Code -->
+          <div class="bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-4 flex flex-col gap-2.5">
+            <label for="room-code-input" class="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+              Join Friend's Room
+            </label>
+            <div class="flex gap-2">
+              <input
+                id="room-code-input"
+                type="text"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="e.g. 48291"
+                value="${OnlineState.joinInput}"
+                oninput="OnlineState.joinInput = this.value.replace(/[^0-9a-zA-Z]/g, '').toUpperCase()"
+                onkeydown="if(event.key==='Enter') joinOnlineRoom()"
+                class="flex-1 min-w-0 min-h-[48px] px-3.5 rounded-2xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:outline-none font-game font-bold text-lg tracking-widest text-center text-slate-800 dark:text-white"
+              />
+              <button type="button" onclick="joinOnlineRoom()" ${OnlineState.isConnecting || !OnlineState.authReady ? 'disabled' : ''}
+                class="min-h-[48px] px-5 rounded-2xl font-game font-bold text-base bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/20 disabled:opacity-60 btn-tactile shrink-0">
+                Join
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Render an individual 5x5 BINGO sheet card (used in Solo, Online & 2-Player modes)
+    function renderBoardCard(boardIdx, isDuo) {
+      const board = AppState.boards[boardIdx];
+      const completedCount = board.completedLineIds.length;
+      const lettersEarned = Math.min(completedCount, 5);
+      const completedLines = board.completedLineIds.map(id => ALL_LINES.find(l => l.id === id)).filter(Boolean);
+
+      // Map each cell index (0..24) to whether it belongs to a completed row/col/diag
+      const winningCellSet = new Set();
+      completedLines.forEach(line => line.cells.forEach(idx => winningCellSet.add(idx)));
+
+      // Determine setup progress
+      const filledCount = board.grid.filter(n => n > 0).length;
+      const nextMissing = getNextMissingNumber(board.grid);
+      const lastCrossed = board.history.length > 0 ? board.history[board.history.length - 1] : null;
+      const isOnline = AppState.mode === 'online' && Boolean(OnlineState.roomCode);
+      const onlineData = OnlineState.roomData || {};
+      const onlineFriendConnected = isOnline ? isFriendConnectedInRoom(onlineData) : false;
+      const onlineFriendReady = isOnline ? isFriendReadyInRoom(onlineData) : false;
+      const isMyOnlineTurn = isOnline ? (onlineData.currentTurn || 'host') === OnlineState.role : true;
+      const canUndoOnline = isOnline
+        ? onlineData.lastActionBy === OnlineState.playerId &&
+          onlineData.lastActionType === 'cross' &&
+          !isMyOnlineTurn
+        : board.history.length > 0;
+      const isDuoTurnCard = isDuo && AppState.boards[0].phase === 'playing' && AppState.boards[1].phase === 'playing' && AppState.duoTurn === boardIdx;
+
+      return `
+        <section class="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-3xl p-3.5 sm:p-5 shadow-xl shadow-slate-900/5 dark:shadow-black/30 border ${isDuoTurnCard ? 'border-emerald-400 dark:border-emerald-500 ring-2 ring-emerald-400/30' : 'border-slate-200/80 dark:border-slate-700/80'} flex flex-col gap-3 relative overflow-hidden">
+          ${isDuo && board.hidden ? `
+            <div class="absolute inset-0 z-20 bg-slate-900/95 backdrop-blur-md text-white flex flex-col items-center justify-center p-6 text-center">
+              <div class="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-3xl mb-3">🙈</div>
+              <h3 class="font-game text-xl font-bold mb-1">${board.name}'s Grid is Hidden</h3>
+              <p class="text-xs text-slate-300 max-w-xs mb-5">
+                Hidden so your friend can set up their numbers without peeking!
+              </p>
+              <button onclick="togglePrivacyCover(${boardIdx})"
+                class="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-sm shadow-lg btn-tactile">
+                👁️ Reveal ${board.name}'s Sheet
+              </button>
+            </div>
+          ` : ''}
+
+          <!-- Top Header: Player Label (in Duo) + Reset / Hide Controls -->
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-1 rounded-xl text-xs font-extrabold uppercase tracking-wider ${
+                board.phase === 'setup'
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300'
+                  : isDuo && AppState.boards[0].phase === 'playing' && AppState.boards[1].phase === 'playing'
+                    ? (isDuoTurnCard
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400')
+                    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'
+              }">
+                ${board.phase === 'setup'
+                  ? '✏️ Setup Grid'
+                  : isDuo && AppState.boards[0].phase === 'playing' && AppState.boards[1].phase === 'playing'
+                    ? (isDuoTurnCard ? '🟢 Your Turn' : '⏳ Waiting')
+                    : '🎯 Live Game'}
+              </span>
+              ${isDuo ? `<span class="font-game font-bold text-base text-slate-700 dark:text-slate-200">${board.name}</span>` : ''}
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              ${isDuo ? `
+                <button onclick="togglePrivacyCover(${boardIdx})" title="Hide/Show Sheet"
+                  class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 btn-tactile">
+                  🙈 Hide
+                </button>
+              ` : ''}
+              <button onclick="promptResetBoard(${boardIdx})"
+                class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-900/40 dark:hover:text-rose-300 transition-colors btn-tactile">
+                🔄 Reset
+              </button>
+            </div>
+          </div>
+
+          <!-- B - I - N - G - O Letter Progress Strip -->
+          <div class="grid grid-cols-5 gap-1.5 sm:gap-2">
+            ${BINGO_LETTERS.map((item, idx) => {
+              const unlocked = idx < lettersEarned;
+              const lineInfo = completedLines[idx];
+              return `
+                <div class="flex flex-col items-center">
+                  <div class="w-full aspect-[5/4] rounded-2xl flex flex-col items-center justify-center font-game font-bold text-2xl sm:text-3xl transition-all duration-300 select-none ${
+                    unlocked
+                      ? `bg-gradient-to-br ${item.color} text-white shadow-lg ring-2 ${item.ring} animate-letter-bounce`
+                      : 'bg-slate-100 dark:bg-slate-700/60 text-slate-300 dark:text-slate-500 border border-dashed border-slate-300 dark:border-slate-600'
+                  }">
+                    <span>${item.char}</span>
+                    ${unlocked && lineInfo ? `
+                      <span class="text-[9px] sm:text-[10px] font-sans font-extrabold uppercase tracking-tighter opacity-90 -mt-1">
+                        ${lineInfo.label}
+                      </span>
+                    ` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- Phase-Specific Status Banner (Setup Helper vs Spoken Sequence Tracker) -->
+          ${board.phase === 'setup' ? `
+            <div class="bg-indigo-50/90 dark:bg-indigo-950/50 border border-indigo-200/80 dark:border-indigo-800/60 rounded-2xl px-3 py-2 flex items-center justify-between gap-2">
+              <div class="text-xs font-semibold text-indigo-900 dark:text-indigo-200 leading-snug">
+                ${filledCount < 25
+                  ? `Tap any empty box to place <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md bg-indigo-600 text-white font-game font-bold">#${nextMissing}</span>`
+                  : board.selectedSwapIdx !== null
+                    ? `Selected <span class="font-bold text-amber-600 dark:text-amber-400">#${board.grid[board.selectedSwapIdx]}</span> — tap another box to swap!`
+                    : isOnline
+                      ? `All 25 set! Tap 2 numbers to swap, or lock your grid.`
+                      : `All 25 set! Tap any 2 numbers to swap, or hit Start.`
+                }
+              </div>
+              <span class="text-xs font-game font-bold px-2 py-1 rounded-xl bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 shrink-0 shadow-xs">
+                ${filledCount}/25
+              </span>
+            </div>
+          ` : isOnline && (!onlineFriendConnected || !onlineFriendReady) ? `
+            <!-- Online Waiting-for-Friend Readiness Banner -->
+            <div class="bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/70 rounded-2xl px-3 py-2.5 flex items-center justify-between gap-2">
+              <div class="text-xs font-bold text-amber-900 dark:text-amber-200 leading-snug">
+                ${!onlineFriendConnected
+                  ? `🔒 Your grid is locked! Waiting for friend to join Room #${OnlineState.roomCode}...`
+                  : `🔒 Your grid is locked! Waiting for friend to lock their 1–25 grid...`}
+              </div>
+              <span class="text-base shrink-0">⏳</span>
+            </div>
+          ` : `
+            <!-- Live Spoken / Synced Sequence Bar -->
+            <div class="bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl px-3 py-2 flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 overflow-hidden flex-1">
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">
+                  Sequence:
+                </span>
+                <div class="flex items-center gap-1 overflow-x-auto sequence-scroll py-0.5">
+                  ${board.history.length === 0
+                    ? `<span class="text-xs text-slate-400 dark:text-slate-500 italic">${
+                        isOnline
+                          ? (isMyOnlineTurn ? 'Your turn: tap 1 number to cut...' : "Waiting for friend's first cross...")
+                          : 'Tap any number called out loud...'
+                      }</span>`
+                    : board.history.map((entry, hIdx) => {
+                        const isLatest = hIdx === board.history.length - 1;
+                        return `
+                          <span class="px-2 py-0.5 rounded-lg font-game text-xs font-bold shrink-0 ${
+                            isLatest
+                              ? 'bg-rose-500 text-white shadow-xs'
+                              : 'bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
+                          }">
+                            ${entry.num}
+                          </span>
+                        `;
+                      }).join('<span class="text-slate-300 dark:text-slate-600 text-[10px]">→</span>')
+                  }
+                </div>
+              </div>
+
+              <!-- Undo Last Cross Button -->
+              <button onclick="undoLastCross(${boardIdx})" ${!canUndoOnline ? 'disabled' : ''}
+                title="${isOnline ? 'Undo your last move before your friend goes' : 'Undo last crossed number'}"
+                class="px-2.5 py-1.5 rounded-xl text-xs font-bold shrink-0 flex items-center gap-1 transition-all ${
+                  !canUndoOnline
+                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                    : 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 hover:bg-amber-200 btn-tactile'
+                }">
+                <span>↩️</span>
+                <span>Undo</span>
+              </button>
+            </div>
+          `}
+
+          <!-- 5x5 Interactive Number Grid -->
+          <div class="grid grid-cols-5 gap-1.5 sm:gap-2.5 p-2 sm:p-2.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700/80">
+            ${board.grid.map((num, idx) => {
+              const isSetup = board.phase === 'setup';
+              const isEmpty = num === 0;
+              const isSelectedForSwap = isSetup && board.selectedSwapIdx === idx;
+              const isCrossed = !isSetup && board.crossed[idx];
+              const isInCompletedLine = !isSetup && winningCellSet.has(idx);
+              const isMostRecent = !isSetup && lastCrossed && lastCrossed.index === idx;
+
+              // Compute dynamic cell classes for maximum visual clarity & delight
+              let cellClasses = 'aspect-square min-h-[46px] sm:min-h-[54px] rounded-xl sm:rounded-2xl font-game font-bold text-xl sm:text-2xl md:text-3xl flex items-center justify-center relative transition-all duration-150 select-none active:scale-95 ';
+
+              if (isSetup) {
+                if (isEmpty) {
+                  cellClasses += 'bg-white/70 dark:bg-slate-800/60 border-2 border-dashed border-slate-300 dark:border-slate-600 text-slate-300 dark:text-slate-600 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 cursor-pointer';
+                } else if (isSelectedForSwap) {
+                  cellClasses += 'bg-amber-400 text-slate-900 ring-4 ring-amber-300/60 scale-105 shadow-lg cursor-pointer z-10';
+                } else {
+                  cellClasses += 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-b-4 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:-translate-y-0.5 shadow-xs cursor-pointer';
+                }
+              } else {
+                // Playing state
+                if (isCrossed) {
+                  if (isInCompletedLine) {
+                    cellClasses += 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md ring-2 ring-emerald-300 dark:ring-emerald-500/60 cursor-pointer';
+                  } else {
+                    cellClasses += 'bg-rose-50 dark:bg-rose-950/50 text-rose-400 dark:text-rose-300/70 border border-rose-200 dark:border-rose-800/60 cursor-pointer';
+                  }
+                } else {
+                  cellClasses += 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-b-4 border-slate-200 dark:border-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:border-indigo-300 active:translate-y-0.5 shadow-xs cursor-pointer';
+                }
+              }
+
+              return `
+                <button
+                  type="button"
+                  onclick="${isSetup ? `handleSetupCellClick(${boardIdx}, ${idx})` : `handlePlayCellClick(${boardIdx}, ${idx})`}"
+                  class="${cellClasses}"
+                  aria-label="${isEmpty ? 'Empty cell' : `Number ${num}${isCrossed ? ', crossed' : ''}`}">
+
+                  <!-- Cell Number -->
+                  <span class="${isCrossed && !isInCompletedLine ? 'opacity-65' : ''}">
+                    ${isEmpty ? '+' : num}
+                  </span>
+
+                  <!-- Hand-Drawn SVG Marker Cross Overlay when crossed out -->
+                  ${isCrossed ? `
+                    <svg class="absolute inset-0 w-full h-full p-2 sm:p-2.5 pointer-events-none" viewBox="0 0 100 100">
+                      <path d="M 20 20 L 80 80" stroke="${isInCompletedLine ? 'rgba(255,255,255,0.85)' : '#f43f5e'}" stroke-width="11" stroke-linecap="round" fill="none" class="cross-path-1" />
+                      <path d="M 80 20 L 20 80" stroke="${isInCompletedLine ? 'rgba(255,255,255,0.85)' : '#f43f5e'}" stroke-width="11" stroke-linecap="round" fill="none" class="cross-path-2" />
+                    </svg>
+                  ` : ''}
+
+                  <!-- Subtle Pulse Dot on the Most Recently Called Number -->
+                  ${isMostRecent ? `
+                    <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-slate-800"></span>
+                  ` : ''}
+                </button>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- Bottom Action Controls (Setup Actions vs Live Stats) -->
+          ${board.phase === 'setup' ? `
+            <div class="flex flex-col gap-2 pt-0.5">
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" onclick="shuffleBoard(${boardIdx})"
+                  class="min-h-[44px] py-2.5 px-3 rounded-2xl font-bold text-xs sm:text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center gap-1.5 btn-tactile">
+                  <span>🔀</span>
+                  <span>Shuffle 1–25</span>
+                </button>
+
+                ${filledCount > 0 && filledCount < 25 ? `
+                  <button type="button" onclick="autoFillRemaining(${boardIdx})"
+                    class="min-h-[44px] py-2.5 px-3 rounded-2xl font-bold text-xs sm:text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 flex items-center justify-center gap-1.5 btn-tactile">
+                    <span>✨</span>
+                    <span>Fill Rest</span>
+                  </button>
+                ` : `
+                  <button type="button" onclick="clearBoardForManualEntry(${boardIdx})"
+                    class="min-h-[44px] py-2.5 px-3 rounded-2xl font-bold text-xs sm:text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center gap-1.5 btn-tactile">
+                    <span>🧹</span>
+                    <span>Clear &amp; Tap 1–25</span>
+                  </button>
+                `}
+              </div>
+
+              <button type="button" onclick="lockBoardAndPlay(${boardIdx})" ${filledCount < 25 ? 'disabled' : ''}
+                class="min-h-[48px] w-full py-3.5 px-4 rounded-2xl font-game font-bold text-base sm:text-lg tracking-wide flex items-center justify-center gap-2 transition-all ${
+                  filledCount < 25
+                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-lg shadow-indigo-500/25 hover:brightness-105 btn-tactile'
+                }">
+                <span>▶️</span>
+                <span>${filledCount < 25 ? `Place ${25 - filledCount} More Number${25 - filledCount === 1 ? '' : 's'}` : isOnline ? 'Lock My Grid & Ready Up!' : 'Lock Numbers & Start Playing!'}</span>
+              </button>
+            </div>
+          ` : `
+            <!-- Live Game Footer Summary -->
+            <div class="flex items-center justify-between px-1 pt-0.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+              <span>Crossed: <strong class="text-slate-800 dark:text-slate-200">${board.history.length}/25</strong></span>
+              <span>Lines: <strong class="${completedCount >= 5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'}">${completedCount} / 5</strong></span>
+              ${isOnline && OnlineState.roomData?.winner ? `
+                <button onclick="reopenOnlineResultModal()" class="text-indigo-600 dark:text-indigo-400 underline font-extrabold">
+                  📋 View Round Result
+                </button>
+              ` : completedCount >= 5 ? `
+                <button onclick="openVictoryModal(AppState.boards[${boardIdx}])" class="text-amber-600 dark:text-amber-400 underline font-extrabold">
+                  🏆 BINGO Achieved!
+                </button>
+              ` : `
+                <span>${5 - lettersEarned} more line${5 - lettersEarned === 1 ? '' : 's'} to win</span>
+              `}
+            </div>
+          `}
+        </section>
+      `;
+    }
+
+    /* ============================================================================
+       6. MODALS, MODE SWITCHING, THEME & TOAST HELPERS
+       ============================================================================ */
+
+    function switchGameMode(newMode) {
+      AppState.mode = newMode;
+      const soloBtn = document.getElementById('mode-solo-btn');
+      const onlineBtn = document.getElementById('mode-online-btn');
+      const duoBtn = document.getElementById('mode-duo-btn');
+
+      const activeCls = 'px-2 sm:px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 bg-indigo-600 text-white shadow-sm min-h-[34px]';
+      const inactiveCls = 'px-2 sm:px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 min-h-[34px]';
+
+      soloBtn.className = newMode === 'solo' ? activeCls : inactiveCls;
+      onlineBtn.className = newMode === 'online' ? activeCls : inactiveCls;
+      duoBtn.className = newMode === 'duo' ? activeCls : inactiveCls;
+
+      SoundFX.playPop(1);
+      renderApp();
+    }
+
+    function toggleSyncDuoCalls(checked) {
+      AppState.syncDuoCalls = checked;
+      showToast(checked ? 'Called numbers will cross on both boards' : 'Boards will cross independently');
+    }
+
+    function toggleSound() {
+      SoundFX.enabled = !SoundFX.enabled;
+      document.getElementById('sound-icon').textContent = SoundFX.enabled ? '🔊' : '🔇';
+      if (SoundFX.enabled) SoundFX.playPop(2);
+      showToast(SoundFX.enabled ? 'Sound effects ON' : 'Sound effects muted');
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+    }
+
+    // Prompt user before resetting an active game board (never uses window.confirm)
+    function promptResetBoard(boardIdx) {
+      if (AppState.mode === 'online' && OnlineState.roomCode) {
+        const modal = document.getElementById('confirm-modal');
+        document.getElementById('confirm-title').textContent = 'Start a New Online Round?';
+        document.getElementById('confirm-message').textContent = 'This will reset the crossed numbers for both you and your friend so you can arrange fresh 1–25 grids.';
+        const actionBtn = document.getElementById('confirm-action-btn');
+        actionBtn.onclick = () => {
+          closeConfirmModal();
+          startNewOnlineRound();
+        };
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        return;
+      }
+
+      const board = AppState.boards[boardIdx];
+      // If still in setup phase and nothing crossed yet, reshuffle/reset directly without interrupting
+      if (board.phase === 'setup') {
+        AppState.boards[boardIdx] = createBoardState(board.name, true);
+        SoundFX.playPop(1);
+        showToast('Board reset with fresh random numbers');
+        renderApp();
+        return;
+      }
+
+      AppState.activeModalBoardIndex = boardIdx;
+      document.getElementById('confirm-title').textContent = 'Start a Fresh Board?';
+      document.getElementById('confirm-message').textContent = 'This will clear your current crossed numbers so you can arrange a new 1–25 grid.';
+      const modal = document.getElementById('confirm-modal');
+      const actionBtn = document.getElementById('confirm-action-btn');
+      actionBtn.onclick = () => {
+        const bName = AppState.boards[AppState.activeModalBoardIndex].name;
+        AppState.boards[AppState.activeModalBoardIndex] = createBoardState(bName, true);
+        if (AppState.mode === 'duo') AppState.duoTurn = 0;
+        closeConfirmModal();
+        SoundFX.playPop(1);
+        renderApp();
+      };
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeConfirmModal() {
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function openRulesModal() {
+      const modal = document.getElementById('rules-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeRulesModal() {
+      const modal = document.getElementById('rules-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function openVictoryModal(board) {
+      const modal = document.getElementById('victory-modal');
+      const card = document.getElementById('victory-card');
+      const iconBox = document.getElementById('victory-icon-box');
+      const lettersRow = document.getElementById('victory-letters-row');
+      const headline = document.getElementById('victory-headline');
+      const subtext = document.getElementById('victory-subtext');
+
+      card.className = 'bg-white dark:bg-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-amber-300/60 dark:border-amber-500/30 animate-pop-in text-center';
+      iconBox.className = 'w-16 h-16 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center mx-auto mb-3 text-3xl shadow-lg shadow-amber-500/30';
+      iconBox.textContent = '🏆';
+      lettersRow.classList.remove('hidden');
+
+      headline.textContent = AppState.mode === 'duo'
+        ? `${board.name.toUpperCase()} WINS!`
+        : 'BINGO! YOU WIN!';
+      subtext.textContent = `Completed ${board.completedLineIds.length} lines in ${board.history.length} spoken numbers!`;
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function openOnlineVictoryModal(outcome, winnerInfo) {
+      const modal = document.getElementById('victory-modal');
+      const card = document.getElementById('victory-card');
+      const iconBox = document.getElementById('victory-icon-box');
+      const lettersRow = document.getElementById('victory-letters-row');
+      const headline = document.getElementById('victory-headline');
+      const subtext = document.getElementById('victory-subtext');
+
+      const myBoard = AppState.boards[0];
+      const myLines = Math.min(myBoard.completedLineIds.length, 5);
+      const word = 'BINGO';
+      const myLettersLabel = myLines > 0 ? word.slice(0, myLines) : 'none';
+      const triggerText = winnerInfo?.triggerNum ? ` on #${winnerInfo.triggerNum}` : '';
+
+      if (outcome === 'win') {
+        card.className = 'bg-white dark:bg-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-emerald-400/70 dark:border-emerald-500/40 animate-pop-in text-center';
+        iconBox.className = 'w-16 h-16 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center mx-auto mb-3 text-3xl shadow-lg shadow-amber-500/30';
+        iconBox.textContent = '🏆';
+        lettersRow.classList.remove('hidden');
+        headline.textContent = 'BINGO! YOU WIN!';
+        subtext.textContent = `You completed ${winnerInfo?.lines || 5} lines${triggerText} (in ${winnerInfo?.calls || myBoard.history.length} numbers)!`;
+      } else if (outcome === 'tie') {
+        card.className = 'bg-white dark:bg-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-indigo-400/70 dark:border-indigo-500/40 animate-pop-in text-center';
+        iconBox.className = 'w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center mx-auto mb-3 text-3xl shadow-lg shadow-indigo-500/30';
+        iconBox.textContent = '🤝';
+        lettersRow.classList.remove('hidden');
+        headline.textContent = 'DOUBLE BINGO! TIE!';
+        subtext.textContent = `Both you and your friend hit 5 lines at the exact same time${triggerText}!`;
+      } else {
+        card.className = 'bg-white dark:bg-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-300 dark:border-slate-600 animate-pop-in text-center';
+        iconBox.className = 'w-16 h-16 rounded-3xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center mx-auto mb-3 text-3xl';
+        iconBox.textContent = '🥈';
+        lettersRow.classList.add('hidden');
+        headline.textContent = 'FRIEND GOT BINGO!';
+        subtext.textContent = `Your friend completed 5 lines first${triggerText}. You finished with ${myLines}/5 lines (${myLettersLabel}).`;
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    // Reopen the exact online round result modal if dismissed
+    function reopenOnlineResultModal() {
+      const winner = OnlineState.roomData?.winner;
+      if (!winner) return;
+      const iAmWinner = winner.playerId === OnlineState.playerId;
+      const iAlsoReachedFive = AppState.boards[0].completedLineIds.length >= 5;
+      if (winner.isTie || (iAmWinner && iAlsoReachedFive)) {
+        openOnlineVictoryModal('tie', winner);
+      } else if (iAmWinner) {
+        openOnlineVictoryModal('win', winner);
+      } else {
+        openOnlineVictoryModal('lose', winner);
+      }
+    }
+
+    // Close the BINGO victory/result modal so the player can inspect the board
+    function dismissVictoryModal() {
+      const modal = document.getElementById('victory-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // Start a fresh round/board directly from the victory modal "Play Again" button
+    function startNewBoardFromWin() {
+      dismissVictoryModal();
+
+      if (AppState.mode === 'online' && OnlineState.roomCode) {
+        startNewOnlineRound();
+        return;
+      }
+
+      if (AppState.mode === 'duo') {
+        AppState.boards[0] = createBoardState(AppState.boards[0].name, true);
+        AppState.boards[1] = createBoardState(AppState.boards[1].name, true);
+        AppState.duoTurn = 0;
+        SoundFX.playPop(2);
+        showToast('Fresh 1–25 sheets ready for both players!');
+      } else {
+        AppState.boards[0] = createBoardState(AppState.boards[0].name, true);
+        SoundFX.playPop(2);
+        showToast('Fresh 1–25 sheet ready!');
+      }
+
+      renderApp();
+    }
+
+    // Non-intrusive floating toast feedback
+    let toastTimeout = null;
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      container.innerHTML = `
+        <div class="bg-slate-900/90 dark:bg-white/95 text-white dark:text-slate-900 px-4 py-2 rounded-full text-xs font-bold shadow-lg animate-pop-in text-center">
+          ${message}
+        </div>
+      `;
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        container.innerHTML = '';
+      }, 2400);
+    }
+
+    // Expose interactive handlers globally for HTML onclick/oninput bindings
+    Object.assign(window, {
+      OnlineState,
+      switchGameMode,
+      openRulesModal,
+      closeRulesModal,
+      toggleSound,
+      toggleTheme,
+      closeConfirmModal,
+      startNewBoardFromWin,
+      dismissVictoryModal,
+      switchMobilePlayerTab,
+      toggleSyncDuoCalls,
+      togglePrivacyCover,
+      promptResetBoard,
+      undoLastCross,
+      handleSetupCellClick,
+      handlePlayCellClick,
+      shuffleBoard,
+      autoFillRemaining,
+      clearBoardForManualEntry,
+      lockBoardAndPlay,
+      openVictoryModal,
+      createOnlineRoom,
+      joinOnlineRoom,
+      copyRoomCode,
+      leaveOnlineRoom,
+      startNewOnlineRound,
+      reopenOnlineResultModal
+    });
+
+    // Initialize online auth and render initial game board
+    initOnlineAuth();
+    renderApp();
+  </script>
+</body>
+</html>
